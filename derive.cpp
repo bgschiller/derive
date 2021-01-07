@@ -1,4 +1,5 @@
 
+#include "dirs.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Basic/SourceManager.h"
@@ -12,7 +13,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Signals.h"
-
 #include <iostream>
 
 using namespace clang;
@@ -25,8 +25,6 @@ auto ShowyClassDecl =
 
 class ShowCallback : public MatchFinder::MatchCallback {
 public:
-  ShowCallback(ExecutionContext &Context) : Context(Context) {}
-
   void run(const MatchFinder::MatchResult &Result) {
     auto *cls = Result.Nodes.getNodeAs<clang::RecordDecl>("cls");
     if (!cls)
@@ -37,42 +35,29 @@ public:
                 << field->getType().getAsString() << std::endl;
     }
   }
-
-private:
-  ExecutionContext &Context;
 };
 
 // Set up the command line options
 static cl::extrahelp CommonHelp(CommonOptionsParser::HelpMessage);
-static cl::OptionCategory ToolTemplateCategory("tool-template options");
+static cl::OptionCategory ToolTemplateCategory("derive options");
 
 int main(int argc, const char **argv) {
   llvm::sys::PrintStackTraceOnErrorSignal(argv[0]);
 
-  auto Executor = clang::tooling::createExecutorFromCommandLineArgs(
-      argc, argv, ToolTemplateCategory);
+  CommonOptionsParser OptionsParser(argc, argv, ToolTemplateCategory);
+  ClangTool tool(OptionsParser.getCompilations(),
+                 OptionsParser.getSourcePathList());
 
-  if (!Executor) {
-    llvm::errs() << llvm::toString(Executor.takeError()) << "\n";
-    return 1;
-  }
+  ArgumentsAdjuster ardj1 =
+      getInsertArgumentAdjuster(derive_internal::clang_inc_dir1.c_str());
+  ArgumentsAdjuster ardj2 =
+      getInsertArgumentAdjuster(derive_internal::clang_inc_dir2.c_str());
+  tool.appendArgumentsAdjuster(ardj1);
+  tool.appendArgumentsAdjuster(ardj2);
 
-  ast_matchers::MatchFinder Finder;
-  ShowCallback Callback(*Executor->get()->getExecutionContext());
+  ast_matchers::MatchFinder finder;
+  ShowCallback showCallback;
+  finder.addMatcher(ShowyClassDecl, &showCallback);
 
-  // TODO: Put your matchers here.
-  // Use Finder.addMatcher(...) to define the patterns in the AST that you
-  // want to match against. You are not limited to just one matcher!
-  //
-  // This is a sample matcher:
-  Finder.addMatcher(ShowyClassDecl, &Callback);
-
-  auto Err = Executor->get()->execute(newFrontendActionFactory(&Finder));
-  if (Err) {
-    llvm::errs() << llvm::toString(std::move(Err)) << "\n";
-  }
-  Executor->get()->getToolResults()->forEachResult(
-      [](llvm::StringRef key, llvm::StringRef value) {
-        llvm::errs() << "----" << key.str() << "\n" << value.str() << "\n";
-      });
+  return tool.run(newFrontendActionFactory(&finder).get());
 }

@@ -1,0 +1,3 @@
+/home/brian/code/derive/test/build/CMakeFiles/rebuild_cache.dir
+/home/brian/code/derive/test/build/CMakeFiles/test.dir
+/home/brian/code/derive/test/build/CMakeFiles/edit_cache.dir
