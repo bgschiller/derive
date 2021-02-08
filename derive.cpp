@@ -1,4 +1,5 @@
 
+#include "api.h"
 #include "dirs.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -14,6 +15,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Signals.h"
 #include <iostream>
+#include <variant>
 
 using namespace clang;
 using namespace clang::ast_matchers;
@@ -27,13 +29,19 @@ class ShowCallback : public MatchFinder::MatchCallback {
 public:
   void run(const MatchFinder::MatchResult &Result) {
     auto *cls = Result.Nodes.getNodeAs<clang::RecordDecl>("cls");
+    SourceManager &sm = Result.Context->getSourceManager();
     if (!cls)
       return;
+    SourceRange sourceRange = cls->getSourceRange();
+    auto startLoc = sm.getPresumedLoc(sourceRange.getBegin());
+    std::cout << "Examining " << startLoc.getFilename() << std::endl;
     auto fields = cls->fields();
     for (auto field : fields) {
       std::cout << field->getNameAsString() << ": "
                 << field->getType().getAsString() << std::endl;
     }
+    auto contents = Derive::api::sourceChunk(sm, sourceRange);
+    std::cout << contents;
   }
 };
 

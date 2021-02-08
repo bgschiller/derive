@@ -25,16 +25,30 @@ list(APPEND CMAKE_MODULE_PATH ${LLVM_INSTALL_PREFIX}/lib/cmake/clang)
 include(AddLLVM)
 include(ClangConfig)
 
-include_directories(${CLANG_INCLUDE_DIRS} ${LLVM_INCLUDE_DIRS})
 
-add_llvm_executable(derive derive.cpp)
+message(STATUS "API file: " ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp)
+
+add_library(derive ${CMAKE_CURRENT_SOURCE_DIR}/api.cpp)
+
+target_include_directories(derive
+  PUBLIC
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${CLANG_INCLUDE_DIRS}
+  ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(derive
-  PRIVATE
+  PUBLIC
   clangAST
   clangASTMatchers
   clangBasic
   clangFrontend
   clangTooling
   clangToolingRefactoring
+)
+
+add_llvm_executable(deriveExecutable derive.cpp api.cpp)
+
+target_link_libraries(deriveExecutable
+  PRIVATE
+  derive
 )
